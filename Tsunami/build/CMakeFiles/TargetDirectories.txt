@@ -1,0 +1,9 @@
+/Users/vl/LaTeX/epl1110-2122/Homeworks/Tsunami-Glu/build/CMakeFiles/rebuild_cache.dir
+/Users/vl/LaTeX/epl1110-2122/Homeworks/Tsunami-Glu/build/CMakeFiles/edit_cache.dir
+/Users/vl/LaTeX/epl1110-2122/Homeworks/Tsunami-Glu/build/CMakeFiles/run.dir
+/Users/vl/LaTeX/epl1110-2122/Homeworks/Tsunami-Glu/build/CMakeFiles/myFem.dir
+/Users/vl/LaTeX/epl1110-2122/Homeworks/Tsunami-Glu/build/glfw/CMakeFiles/rebuild_cache.dir
+/Users/vl/LaTeX/epl1110-2122/Homeworks/Tsunami-Glu/build/glfw/CMakeFiles/edit_cache.dir
+/Users/vl/LaTeX/epl1110-2122/Homeworks/Tsunami-Glu/build/glfw/src/CMakeFiles/rebuild_cache.dir
+/Users/vl/LaTeX/epl1110-2122/Homeworks/Tsunami-Glu/build/glfw/src/CMakeFiles/edit_cache.dir
+/Users/vl/LaTeX/epl1110-2122/Homeworks/Tsunami-Glu/build/glfw/src/CMakeFiles/glfw.dir

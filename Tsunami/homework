@@ -32,7 +32,7 @@ typedef struct {
 //definition des fonction
 double interpolate(double* phi, double* U, int* map, int n);
 void femTsunamiAddIntegralsElements(femTsunamiProblem* myTsunami);
-
+void femTsunamiAddIntegralsEdges(femTsunamiProblem* myTsunami);
 //fonction principale
 void tsunamiCompute(double dt, int nmax, int sub, const char *meshFileName, const char *baseResultName)
 {
@@ -48,9 +48,9 @@ void tsunamiCompute(double dt, int nmax, int sub, const char *meshFileName, cons
     theMesh->Y = malloc(sizeof(double) * theMesh->nNode);
     theMesh->bath = malloc(sizeof(double) * theMesh->nNode);
     for (i = 0; i < theMesh->nNode; ++i) {
-        fscanf(file, "%d : %le %le %le \n", &trash, &theMesh->X[i], &theMesh->Y[i]), & theMesh->bath;
+        fscanf(file, "%d : %le %le %le \n", &trash, &theMesh->X[i], &theMesh->Y[i], & theMesh->bath);
     }
-    fscanf(file, "Number of triangles % d \n", &theMesh->nElem);
+    fscanf(file, "Number of triangles %d \n", &theMesh->nElem);
     theMesh->elem = malloc(sizeof(int) * 3 * theMesh->nElem);
     for (i = 0; i < theMesh->nElem; ++i) {
         elem = &(theMesh->elem[i * 3]);
@@ -62,6 +62,7 @@ void tsunamiCompute(double dt, int nmax, int sub, const char *meshFileName, cons
     }
     fclose(file);
 
+    
     femTsunamiProblem* myTsunami = malloc(sizeof(femTsunamiProblem)); //alocation de mémoire pour mon probleme
     myTsunami->mesh = theMesh;
     myTsunami->edges = theEdges;
@@ -72,12 +73,7 @@ void tsunamiCompute(double dt, int nmax, int sub, const char *meshFileName, cons
     myTsunami->V = malloc(sizeof(double) * size);
     myTsunami->FE = malloc(sizeof(double) * size);
     myTsunami->FU = malloc(sizeof(double) * size);
-    myTsunami->FV = malloc(sizeof(double) * size); 
-    for (int i = 0; i < myTsunami->size; i++) {
-        myTsunami->FE[i] = 0.0;
-        myTsunami->FU[i] = 0.0;
-        myTsunami->FV[i] = 0.0;
-    }
+    myTsunami->FV = malloc(sizeof(double) * size);
     femMesh* mesh = myTsunami->mesh;
      
     //Condition initial de Okada
@@ -89,6 +85,10 @@ void tsunamiCompute(double dt, int nmax, int sub, const char *meshFileName, cons
             myTsunami->V[3 * i + j] = 0.0;
         }
     }
+
+    
+    femTsunamiAddIntegralsElements(myTsunami);
+    //femTsunamiAddIntegralsEdges(myTsunami);
 
 
 
@@ -140,10 +140,11 @@ void femTsunamiAddIntegralsElements(femTsunamiProblem* myTsunami)
 
     for (i = 0; i < nElem; i++) {
        
-        int* mapCoord = &(elem[i * 3]);
+        int* mapCoord = &(elem[3*i]);
         for (j = 0; j < 3; ++j) {
             xLoc[j] = X[mapCoord[j]];
             yLoc[j] = Y[mapCoord[j]];
+            mapElem[j] = 3 * i + j;
         }
         jac = (xLoc[1] - xLoc[0]) * (yLoc[2] - yLoc[0]) - (yLoc[1] - yLoc[0]) * (xLoc[2] - xLoc[0]);
         dphidx[0] = (yLoc[1] - yLoc[2]) / jac;
@@ -158,6 +159,11 @@ void femTsunamiAddIntegralsElements(femTsunamiProblem* myTsunami)
             xsi = gaussTriangleXsi[j];
             eta = gaussTriangleXsi[j];
             weight = gaussTriangleWeight[j];
+
+            phi[0] = 1 - xsi - eta;
+            phi[1] = xsi;
+            phi[2] = eta;
+
             y = interpolate(phi, Y, mapCoord, 3);
             x = interpolate(phi, X, mapCoord, 3);
             bath = interpolate(phi, Bath, mapCoord, 3);
@@ -191,12 +197,13 @@ void femTsunamiAddIntegralsEdges(femTsunamiProblem* myTsunami)  //pas fini
 
     double  xEdge[2], yEdge[2], phiEdge[2], bathEdge[2];
     double  xsi, weight, jac;
-    double  eL, eR, uL, uR, vL, vR, unL, unR;
+    double  eL, eR, uL, uR, vL, vR, unL, unR , bath,x,y;
     double  qe, qu, qv;
     int     i, j,k, mapEdge[2][2];
     int     sizeGlo = mesh->nElem * 3 + 1;
 
     for (i = 0; i < edge->nEdge; i++) {
+        
         for (j = 0; j < 2; ++j) {
             int node = edge[i].node[j];
             for (k = 0; k < 2; k++) {
@@ -211,11 +218,12 @@ void femTsunamiAddIntegralsEdges(femTsunamiProblem* myTsunami)  //pas fini
                 }
             }
         }
+
         for (j = 0; j < 2; ++j) {
             int node = edge[i].node[j];
             xEdge[j] = mesh->X[i];
             yEdge[j] = mesh->Y[i];
-            bathEdge[j] = mesh->bath[node];
+            bathEdge[j] = mesh->bath[i];
         }
 
         int boundary = (mapEdge[1][0] == sizeGlo - 1);
@@ -226,10 +234,19 @@ void femTsunamiAddIntegralsEdges(femTsunamiProblem* myTsunami)  //pas fini
         double nx = dydxsi / norm;
         double ny = -dxdxsi / norm;
         jac = norm / 2.0;
-        for (k = 0; k < theRule->n; k++) {
-            xsi = theRule->xsi[k];
-            weight = theRule->weight[k];
-            femDiscretePhi1(theSpace, xsi, phiEdge);
+
+        for (j = 0; j < 2; j++) {
+            xsi = gaussEdgeXsi[k];
+            weight = gaussEdgeWeight[k];
+            phiEdge[0] = (1.0 - xsi) / 2.0;
+            phiEdge[1] = (1.0 + xsi) / 2.0;
+
+            for (k = 0; k < 2; ++k) {
+                x += xEdge[i] * phiEdge[i];
+                y += yEdge[i] * phiEdge[i];
+                bath += bathEdge[i] * phiEdge[i];
+            }
+
             eL = interpolate(phiEdge, E, mapEdge[0], 2);
             eR = boundary ? eL : interpolate(phiEdge, E, mapEdge[1], 2);
             uL = interpolate(phiEdge, U, mapEdge[0], 2);
@@ -238,9 +255,11 @@ void femTsunamiAddIntegralsEdges(femTsunamiProblem* myTsunami)  //pas fini
             vR = interpolate(phiEdge, V, mapEdge[1], 2);
             unL = uL * nx + vL * ny;
             unR = boundary ? -unL : uR * nx + vR * ny;
-            qe = 0.5 * h * ((unL + unR) + sqrt(g / h) * (eL - eR));
-            qu = 0.5 * g * nx * ((eL + eR) + sqrt(h / g) * (unL - unR));
-            qv = 0.5 * g * ny * ((eL + eR) + sqrt(h / g) * (unL - unR));
+
+            qe = 0.5 * bath * ((unL + unR) + sqrt(g / bath) * (eL - eR));
+            qu = 0.5 * g * nx * ((eL + eR) + sqrt(bath / g) * (unL - unR));
+            qv = 0.5 * g * ny * ((eL + eR) + sqrt(bath / g) * (unL - unR));
+
             for (i = 0; i < 2; i++) {
                 BE[mapEdge[0][i]] -= qe * phiEdge[i] * jac * weight;
                 BU[mapEdge[0][i]] -= qu * phiEdge[i] * jac * weight;
@@ -259,6 +278,7 @@ double interpolate(double* phi, double* U, int* map, int n) {
         u += phi[i] * U[map[i]];
     return u;
 }
+
 
 
 
